@@ -1,0 +1,326 @@
+// ============================================================
+// Dedicated Admin System — Prisma Schema
+// Isolated Security Boundary for Gaming Marketplace Backoffice
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ---------------------------------------------------------------
+// Dedicated Admin Identity & Authentication
+// ---------------------------------------------------------------
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+  FINANCE
+  VIEWER
+}
+
+model AdminUser {
+  id                  String     @id @default(cuid())
+  username            String     @unique
+  email               String     @unique
+  passwordHash        String     // Argon2id / Scrypt / Bcrypt hardened
+  displayName         String
+  role                AdminRole  @default(VIEWER)
+  isActive            Boolean    @default(true)
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  totp                AdminTotp?
+  recoveryCodes       AdminRecoveryCode[]
+  sessions            AdminSession[]
+  auditLogs           AdminAuditLog[]
+  requestedApprovals  ApprovalRequest[]   @relation("RequestedBy")
+  reviewedApprovals   ApprovalRequest[]   @relation("ReviewedBy")
+
+  @@map("admin_users")
+}
+
+model AdminTotp {
+  id              String    @id @default(cuid())
+  adminId         String    @unique
+  secretEncrypted String    // Encrypted with AES-256-GCM
+  isVerified      Boolean   @default(false)
+  enrolledAt      DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("admin_totp")
+}
+
+model AdminRecoveryCode {
+  id        String    @id @default(cuid())
+  adminId   String
+  codeHash  String    // Hash of the backup recovery code
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@map("admin_recovery_codes")
+}
+
+model AdminSession {
+  id             String    @id @default(cuid())
+  adminId        String
+  tokenHash      String    @unique // SHA-256 hash of the bearer/cookie token
+  ipAddress      String?
+  userAgent      String?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  lastActivityAt DateTime  @default(now())
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([tokenHash])
+  @@map("admin_sessions")
+}
+
+// ---------------------------------------------------------------
+// Dual-Control Approval Engine (Two-Person Rule)
+// ---------------------------------------------------------------
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model ApprovalRequest {
+  id                 String         @id @default(cuid())
+  actionType         String         // e.g. STOCK_EXPORT, BULK_DELETE, ROLE_CHANGE, WITHDRAWAL
+  title              String
+  description        String?
+  payloadEncrypted   String         // Encrypted payload of the pending mutation
+  status             ApprovalStatus @default(PENDING)
+  requestedByAdminId String
+  reviewedByAdminId  String?
+  reviewNote         String?
+  executedAt         DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  requestedBy AdminUser  @relation("RequestedBy", fields: [requestedByAdminId], references: [id])
+  reviewedBy  AdminUser? @relation("ReviewedBy", fields: [reviewedByAdminId], references: [id])
+
+  @@index([status])
+  @@index([requestedByAdminId])
+  @@map("approval_requests")
+}
+
+// ---------------------------------------------------------------
+// Immutable Audit Logging & Security Monitoring
+// ---------------------------------------------------------------
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String?
+  action     String   // e.g. LOGIN, 2FA_SUCCESS, STOCK_REVEAL, PRODUCT_UPDATE
+  targetType String   // e.g. Product, StockItem, AdminUser, Approval
+  targetId   String?
+  ip         String?
+  userAgent  String?
+  result     String   // SUCCESS | FAILED
+  metadata   String?  // JSON stringified details (excluding secrets)
+  createdAt  DateTime @default(now())
+
+  admin AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}
+
+enum SecuritySeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model SecurityEvent {
+  id        String           @id @default(cuid())
+  eventType String           // e.g. BRUTE_FORCE_LOCKOUT, INVALID_TOTP, CSRF_REJECTED, ORIGIN_MISMATCH
+  severity  SecuritySeverity @default(WARNING)
+  ip        String?
+  userAgent String?
+  details   String?          // JSON contextual information
+  createdAt DateTime         @default(now())
+
+  @@index([eventType])
+  @@index([severity])
+  @@index([createdAt])
+  @@map("security_events")
+}
+
+// ---------------------------------------------------------------
+// Shared Catalog & Commerce Models (Integrated with Postgres)
+// ---------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  role         String   @default("CUSTOMER")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orders Order[]
+
+  @@map("users")
+}
+
+model Game {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  name       String
+  coverImage String?
+  isActive   Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  products Product[]
+
+  @@map("games")
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  gameId       String
+  title        String
+  subtitle     String?
+  description  String?
+  image        String?
+  category     String?
+  price        Int
+  currency     String   @default("THB")
+  autoDelivery Boolean  @default(true)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  game       Game        @relation(fields: [gameId], references: [id])
+  stockItems StockItem[]
+  orderItems OrderItem[]
+
+  @@index([gameId])
+  @@map("products")
+}
+
+model StockItem {
+  id          String   @id @default(cuid())
+  productId   String
+  // Ciphertext formatted: iv:authTag:encryptedData (AES-256-GCM)
+  secretData  String
+  status      String   @default("AVAILABLE") // AVAILABLE | RESERVED | SOLD | DISABLED
+  orderItemId String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product   Product    @relation(fields: [productId], references: [id])
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
+
+  @@index([productId, status])
+  @@map("stock_items")
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  orderNumber   String      @unique
+  userId        String
+  status        String      @default("PENDING_PAYMENT")
+  totalAmount   Int
+  currency      String      @default("THB")
+  paymentMethod String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+  payments   Payment[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  unitPrice Int
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  order     Order      @relation(fields: [orderId], references: [id])
+  product   Product    @relation(fields: [productId], references: [id])
+  stockItem StockItem?
+  delivery  Delivery?
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Payment {
+  id            String    @id @default(cuid())
+  orderId       String
+  provider      String
+  transactionId String    @unique
+  amount        Int
+  status        String    @default("PENDING")
+  rawPayload    String?
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+model Delivery {
+  id          String    @id @default(cuid())
+  orderItemId String    @unique
+  status      String    @default("PENDING")
+  deliveredAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+
+  @@map("deliveries")
+}
+
+model StoreSetting {
+  id           String   @id @default("default")
+  storeName    String   @default("Xelvex")
+  supportEmail String?
+  discordUrl   String?
+  updatedAt    DateTime @updatedAt
+
+  @@map("store_settings")
+}

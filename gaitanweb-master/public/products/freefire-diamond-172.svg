@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+  <rect width="800" height="800" fill="#07070a"/>
+  
+    
+    <defs>
+      <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+        <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#2a2a38" stroke-width="1" opacity="0.35"/>
+      </pattern>
+    </defs>
+    <rect width="800" height="800" fill="url(#grid)"/>
+  
+    
+    <defs>
+      <radialGradient id="glow1" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#fa8a3f" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="#fa8a3f" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="400" cy="400" r="306" fill="url(#glow1)"/>
+  
+    <g opacity="0.4" stroke="#fa8a3f" stroke-width="2" stroke-linecap="round"><line x1="486.9" y1="405.5" x2="618.2" y2="413.8" opacity="0.65"/><line x1="467.0" y1="455.6" x2="600.0" y2="565.9" opacity="0.34"/><line x1="440.6" y1="477.0" x2="504.5" y2="598.3" opacity="0.52"/><line x1="397.8" y1="487.0" x2="393.8" y2="646.3" opacity="0.42"/><line x1="340.2" y1="463.3" x2="213.8" y2="596.9" opacity="0.73"/><line x1="323.9" y1="442.2" x2="187.8" y2="517.5" opacity="0.66"/><line x1="315.3" y1="380.0" x2="112.1" y2="331.9" opacity="0.43"/><line x1="336.6" y1="340.4" x2="195.8" y2="208.2" opacity="0.73"/><line x1="365.6" y1="320.0" x2="307.0" y2="184.0" opacity="0.29"/><line x1="421.2" y1="315.6" x2="472.1" y2="113.2" opacity="0.30"/><line x1="459.1" y1="336.1" x2="546.6" y2="241.4" opacity="0.48"/><line x1="481.0" y1="368.1" x2="610.2" y2="317.3" opacity="0.53"/></g>
+    <circle cx="201.8" cy="123.3" r="3.5" fill="#fa8a3f" opacity="0.54"/><circle cx="469.4" cy="138.2" r="1.9" fill="#fa8a3f" opacity="0.31"/><circle cx="437.4" cy="80.7" r="2.6" fill="#fa8a3f" opacity="0.37"/><circle cx="747.7" cy="563.1" r="3.9" fill="#fa8a3f" opacity="0.24"/><circle cx="324.0" cy="657.0" r="3.8" fill="#fa8a3f" opacity="0.68"/><circle cx="282.1" cy="737.8" r="3.5" fill="#fa8a3f" opacity="0.68"/><circle cx="375.2" cy="262.2" r="1.7" fill="#fa8a3f" opacity="0.69"/><circle cx="771.2" cy="79.5" r="3.7" fill="#fa8a3f" opacity="0.26"/><circle cx="363.9" cy="476.3" r="2.1" fill="#fa8a3f" opacity="0.48"/><circle cx="417.5" cy="553.8" r="3.6" fill="#fa8a3f" opacity="0.24"/><circle cx="744.3" cy="539.1" r="3.3" fill="#fa8a3f" opacity="0.38"/><circle cx="416.0" cy="629.7" r="2.5" fill="#fa8a3f" opacity="0.59"/>
+    
+    <g transform="translate(399.85995655126806 420.50969397944226)" opacity="0.95">
+      <path d="M -58.14961076817558 -20.35236376886145 L 0 -58.14961076817558 L 58.14961076817558 -20.35236376886145 L 34.88976646090534 43.61220807613168 L 0 58.14961076817558 L -34.88976646090534 43.61220807613168 Z"
+        fill="#fa8a3f" opacity="0.85"/>
+      <path d="M -58.14961076817558 -20.35236376886145 L 0 -5.814961076817558 L 58.14961076817558 -20.35236376886145 M 0 -5.814961076817558 L 0 58.14961076817558"
+        fill="none" stroke="#07070a" stroke-width="3" opacity="0.5"/>
+    </g>
+  
+    <g transform="translate(382.967277101907 396.23349365848213)" opacity="0.95">
+      <path d="M -41.9320438957476 -14.676215363511657 L 0 -41.9320438957476 L 41.9320438957476 -14.676215363511657 L 25.15922633744856 31.449032921810698 L 0 41.9320438957476 L -25.15922633744856 31.449032921810698 Z"
+        fill="#fa8a3f" opacity="0.85"/>
+      <path d="M -41.9320438957476 -14.676215363511657 L 0 -4.19320438957476 L 41.9320438957476 -14.676215363511657 M 0 -4.19320438957476 L 0 41.9320438957476"
+        fill="none" stroke="#07070a" stroke-width="3" opacity="0.5"/>
+    </g>
+  
+    <g transform="translate(407.8208751600933 421.21448803814974)" opacity="0.95">
+      <path d="M -51.654291838134434 -18.07900214334705 L 0 -51.654291838134434 L 51.654291838134434 -18.07900214334705 L 30.992575102880657 38.74071887860082 L 0 51.654291838134434 L -30.992575102880657 38.74071887860082 Z"
+        fill="#fa8a3f" opacity="0.85"/>
+      <path d="M -51.654291838134434 -18.07900214334705 L 0 -5.165429183813444 L 51.654291838134434 -18.07900214334705 M 0 -5.165429183813444 L 0 51.654291838134434"
+        fill="none" stroke="#07070a" stroke-width="3" opacity="0.5"/>
+    </g>
+  
+    
+    <g opacity="0.5" stroke="#fa8a3f" stroke-width="2.5" stroke-linecap="round">
+      <path d="M 594 30 L 770 30 L 770 206" fill="none"/>
+      <path d="M 30 594 L 30 770 L 206 770" fill="none"/>
+    </g>
+  
+    <rect x="1" y="1" width="798" height="798" fill="none" stroke="#2a2a38" stroke-width="2"/>
+  
+</svg>

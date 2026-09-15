@@ -1,0 +1,242 @@
+// ============================================================
+// {{STORE_NAME}} — Gaming Marketplace
+// Prisma schema
+//
+// Core rule baked into this schema: Product and StockItem are
+// separate. A Product is the thing customers browse & buy; a
+// StockItem is one concrete redeemable unit (a code/key/account).
+// One Product -> many StockItems. One StockItem -> at most one
+// completed Order (enforced by the unique orderItemId below), so
+// the same code can never be sold twice.
+//
+// Runs on Postgres (Neon, provisioned via Vercel) — same database for
+// local dev and the deployed app, pointed at by DATABASE_URL.
+//
+// Status/role fields below are plain String columns rather than
+// native enums, kept that way from this schema's original SQLite-dev
+// phase for easy portability. Allowed values are documented next to
+// each field and enforced by Zod at the API boundary
+// (see src/lib/validation.ts), not by the database.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // DATABASE_URL is the pooled (PgBouncer) connection — used at
+  // runtime by serverless functions. directUrl is the unpooled
+  // connection Prisma Migrate needs for schema changes (pooled
+  // connections don't reliably support the session-level locks DDL
+  // requires). Both are provisioned automatically by the Neon
+  // integration on Vercel.
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ---------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  /// CUSTOMER | ADMIN | SUPPORT
+  role         String   @default("CUSTOMER")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orders    Order[]
+  auditLogs AuditLog[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------
+
+model Game {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  name       String
+  coverImage String?
+  isActive   Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  products Product[]
+
+  @@map("games")
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  gameId       String
+  title        String
+  subtitle     String?
+  description  String?
+  image        String?
+  // Sub-grouping within a game's product page (e.g. "Robux", "Blox Fruits",
+  // "เพชร") — purely presentational, no relation of its own.
+  category     String?
+  // Whole-currency-unit price (THB baht, no decimals) — matches how
+  // these gift card denominations are actually priced/sold.
+  price        Int
+  currency     String   @default("THB")
+  autoDelivery Boolean  @default(true)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  game       Game        @relation(fields: [gameId], references: [id])
+  stockItems StockItem[]
+  orderItems OrderItem[]
+
+  @@index([gameId])
+  @@map("products")
+}
+
+// ---------------------------------------------------------------
+// Inventory — the sensitive part. Never exposed publicly as-is.
+// ---------------------------------------------------------------
+
+model StockItem {
+  id        String @id @default(cuid())
+  productId String
+  // Redeemable payload (code/key/credentials), encrypted at rest
+  // at the application layer before it ever reaches this column.
+  secretData String
+  /// AVAILABLE | RESERVED | SOLD | DISABLED
+  status      String   @default("AVAILABLE")
+  orderItemId String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product   Product    @relation(fields: [productId], references: [id])
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
+
+  @@index([productId, status])
+  @@map("stock_items")
+}
+
+// ---------------------------------------------------------------
+// Commerce
+// ---------------------------------------------------------------
+
+model Order {
+  id          String @id @default(cuid())
+  orderNumber String @unique
+  userId      String
+  /// PENDING_PAYMENT | PAID | PROCESSING | DELIVERED | CANCELLED | FAILED | REFUNDED
+  status      String @default("PENDING_PAYMENT")
+  // Prices are always recomputed server-side from Product.price at
+  // order-creation time — this column is the authoritative total,
+  // never trusted from the client.
+  totalAmount Int
+  currency    String   @default("THB")
+  /// truemoney | promptpay | card — the method the customer picked at
+  /// checkout (analytics only; the Payment row records what actually
+  /// settled it).
+  paymentMethod String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+  payments   Payment[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String @id @default(cuid())
+  orderId   String
+  productId String
+  // Snapshot of price at purchase time — protects historical orders
+  // from later Product.price changes.
+  unitPrice Int
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  order     Order      @relation(fields: [orderId], references: [id])
+  product   Product    @relation(fields: [productId], references: [id])
+  stockItem StockItem?
+  delivery  Delivery?
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Payment {
+  id            String @id @default(cuid())
+  orderId       String
+  provider      String
+  transactionId String @unique
+  amount        Int
+  /// PENDING | SUCCESS | FAILED | REFUNDED
+  status     String    @default("PENDING")
+  // Raw webhook payload kept for dispute/audit purposes.
+  rawPayload String?
+  paidAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+model Delivery {
+  id          String @id @default(cuid())
+  orderItemId String @unique
+  /// PENDING | DELIVERED | FAILED
+  status      String    @default("PENDING")
+  deliveredAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+
+  @@map("deliveries")
+}
+
+// ---------------------------------------------------------------
+// Ops
+// ---------------------------------------------------------------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String
+  entity    String
+  entityId  String
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+// Singleton row (id always "default") — store-wide settings edited
+// from /admin/settings.
+model StoreSetting {
+  id           String   @id @default("default")
+  storeName    String   @default("Xelvex")
+  supportEmail String?
+  discordUrl   String?
+  updatedAt    DateTime @updatedAt
+
+  @@map("store_settings")
+}
